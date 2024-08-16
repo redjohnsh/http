@@ -137,7 +137,7 @@ export class HttpClient {
 export class Http {
   private constructor() {}
 
-  static readonly instance = new HttpClient();
+  static readonly instance: HttpClient = new HttpClient();
 
   static get(...path: Path): RequestBuilderWithoutBody {
     return Http.instance.get(...path);
