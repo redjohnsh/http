@@ -1,0 +1,16 @@
+{
+  "name": "http",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "banditypes": "^0.2.5",
+    "valibot": "^0.37.0",
+    "zod": "^3.23.8"
+  }
+}
