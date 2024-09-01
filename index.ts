@@ -6,7 +6,7 @@ import {
 } from "valibot";
 import type { Banditype } from "banditypes";
 import { type Struct, assert } from "superstruct";
-import { decode } from "@msgpack/msgpack";
+import { decode } from "@std/msgpack";
 
 export type Success<T> = { readonly success: true; value: T };
 export type Failure<E> = { readonly success: false; reason: E };
