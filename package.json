@@ -6,15 +6,11 @@
     "@types/bun": "latest"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0"
-  },
-  "dependencies": {
+   "@msgpack/msgpack": "^3.0.0-beta2",
     "banditypes": "^0.2.5",
+    "superstruct": "^2.0.2",
+    "typescript": "^5.0.0",
     "valibot": "^0.40.0",
-    "zod": "^3.23.8"
-  },
-  "optionalDependencies": {
-    "@msgpack/msgpack": "^3.0.0-beta2",
-    "superstruct": "^2.0.2"
+    "zod": "^3.23.8"  
   }
 }
