@@ -24,6 +24,19 @@
  * @module HttpClient
  */
 
+export class FetchError extends Error {}
+export class ClientError extends FetchError {}
+export class ServerError extends FetchError {
+  constructor(readonly response: Response) {
+    super(`Server replied with status: ${response.status}`);
+  }
+}
+
+export class TimeoutError extends ClientError {}
+export class AbortError extends ClientError {}
+export class NetworkError extends ClientError {}
+export class UnknownError extends ClientError {}
+
 type JSONValue =
   | string
   | number
@@ -115,6 +128,18 @@ export interface Options {
    * The referrer policy for the request (e.g., "no-referrer", "origin").
    */
   referrerPolicy?: ReferrerPolicy;
+
+  /**
+   * The maximum number of retry attempts for failed requests.
+   * Defaults to `0` if not specified, meaning no retries will occur.
+   */
+  retry?: number;
+
+  /**
+   * The delay between retry attempts, in milliseconds.
+   * Defaults to `500` if not specified, meaning retries will occur after 500 ms.
+   */
+  retryDelay?: number;
 
   /**
    * The timeout duration for the request in milliseconds.
@@ -233,6 +258,25 @@ export class HttpClient {
 export type BuilderWithoutBody = Omit<Builder, "body">;
 type BuilderOptions = Omit<Options, "baseUrl">;
 
+const MIN_RETRY_DELAY = 200; // 200ms
+const MAX_RETRY_DELAY = 10_000; // 10 seconds
+const RETRY_CODE_LIST: readonly number[] = [
+  408, 409, 425, 429, 500, 502, 503, 504,
+];
+
+function shouldRetryRequest(
+  request: Request,
+  response: Response,
+  currentAttempt: number,
+  maxAttempts: number
+): boolean {
+  return (
+    currentAttempt < maxAttempts &&
+    request.method === "GET" &&
+    RETRY_CODE_LIST.includes(response.status)
+  );
+}
+
 /**
  * The Builder class is used to configure and send HTTP requests with customizable options.
  * It supports various methods for setting request headers, body, parameters, and other options
@@ -249,6 +293,29 @@ export class Builder {
   #options: BuilderOptions;
   #signal?: AbortSignal;
   #url: URL;
+
+  #handleError(error: unknown): Error {
+    if (error instanceof ServerError) {
+      return error;
+    }
+
+    if (error instanceof Error) {
+      switch (error.name) {
+        case "AbortError":
+          return new AbortError(error.message, { cause: error });
+        case "NetworkError":
+        case "ConnectionRefused": // Thrown by Bun.js
+        case "TypeError": // Typically CORS-related
+          return new NetworkError(error.message, { cause: error });
+        case "TimeoutError":
+          return new TimeoutError(error.message, { cause: error });
+        default:
+          break;
+      }
+    }
+
+    return new UnknownError("An unknown error occurred.");
+  }
 
   constructor(method: string, url: URL, options: BuilderOptions) {
     this.#method = method;
@@ -498,37 +565,73 @@ export class Builder {
    * Sends the request and resolves with the raw Response object.
    * @returns A Promise that resolves with the Response.
    */
-  async response(): Promise<Response> {
-    const {
-      beforeSend,
-      fetch = globalThis.fetch,
-      timeout = 10_000,
-      ...requestInit
-    } = this.#options;
+  response(): Promise<Response> {
+    const run = async (currentAttempt = 1) => {
+      const {
+        beforeSend,
+        fetch = globalThis.fetch,
+        timeout = 10_000,
+        retry = 0,
+        retryDelay = 500,
+        ...requestInit
+      } = this.#options;
 
-    const signal = mergeAbortSignals(
-      AbortSignal.timeout(timeout),
-      this.#signal
-    );
+      const signal = mergeAbortSignals(
+        AbortSignal.timeout(timeout),
+        this.#signal
+      );
 
-    const request = new Request(this.#url, {
-      ...requestInit,
-      body: this.#body,
-      headers: this.#headers,
-      method: this.#method,
-      signal,
-    });
-
-    await beforeSend?.(request);
-    const response = await fetch(request);
-
-    if (!response.ok) {
-      throw new Error(`Server replied with status: ${response.status}`, {
-        cause: response,
+      const request = new Request(this.#url, {
+        ...requestInit,
+        body: this.#body,
+        headers: this.#headers,
+        method: this.#method,
+        signal,
       });
-    }
 
-    return response;
+      await beforeSend?.(request);
+
+      try {
+        const response = await fetch(request);
+
+        if (response.ok) {
+          return response; // Return the successful response
+        }
+
+        if (!shouldRetryRequest(request, response, currentAttempt, retry)) {
+          // Throw a ServerError if no more retries are allowed
+          throw new ServerError(response);
+        }
+
+        // Handle Retry-After header
+        let backoffDelay = retryDelay * 2 ** (currentAttempt - 1);
+        const retryAfter = response.headers.get("Retry-After");
+
+        if (retryAfter) {
+          const retryAfterSeconds = parseInt(retryAfter, 10); // Retry-After is in seconds
+          if (!isNaN(retryAfterSeconds)) {
+            backoffDelay = Math.max(retryAfterSeconds * 1_000, backoffDelay); // Convert to ms
+          }
+        }
+
+        backoffDelay = Math.min(
+          MAX_RETRY_DELAY,
+          Math.max(MIN_RETRY_DELAY, backoffDelay)
+        );
+
+        console.warn(
+          `Attempt ${currentAttempt}/${retry} failed with status ${response.status}. Retrying in ${backoffDelay}ms...`
+        );
+
+        await delay(backoffDelay);
+
+        return await run(currentAttempt + 1); // Retry recursively
+      } catch (err) {
+        throw this.#handleError(err);
+      }
+    };
+
+    return run();
   }
 
   /**
@@ -627,4 +730,8 @@ function mergeAbortSignals(
   });
 
   return signal;
+}
+
+function delay(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
 }
