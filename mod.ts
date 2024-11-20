@@ -635,6 +635,28 @@ export class Builder {
   }
 
   /**
+   * Set the maximum number of retry attempts for a request in case of failure.
+   * The request will be retried up to the specified number of times before failing.
+   * @param value - The maximum number of retries. Default is 0 (no retries).
+   * @returns The `Builder` instance, allowing for method chaining.
+   */
+  retry(value: number): this {
+    this.#options.retry = value;
+    return this;
+  }
+
+  /**
+   * Set the delay between retry attempts, in milliseconds.
+   * The delay will be applied between each retry attempt when the request fails.
+   * @param value - The delay between retries, in milliseconds. Default is 500 ms.
+   * @returns The `Builder` instance, allowing for method chaining.
+   */
+  retryDelay(value: number): this {
+    this.#options.retryDelay = value;
+    return this;
+  }
+
+  /**
    * Sets an AbortSignal or AbortController to control request cancellation.
    * @param value - An AbortSignal or AbortController instance.
    * @returns The Builder instance for chaining.
