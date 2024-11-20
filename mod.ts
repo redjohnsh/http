@@ -125,6 +125,29 @@ export interface Options {
 
 export type PathSegments = readonly (number | string | null | undefined)[];
 
+/**
+ * The HttpClient class provides a flexible interface for making HTTP requests.
+ * It supports various HTTP methods (GET, POST, PUT, PATCH, DELETE) and allows you to configure
+ * requests with options such as custom headers, timeouts, credentials, and more.
+ *
+ * The class follows a builder pattern, where methods like `get()`, `post()`, `put()`, `delete()`,
+ * etc., return a Builder instance. The Builder class allows you to further customize the request
+ * by setting request bodies, headers, parameters, and other options.
+ *
+ * The HttpClient class also allows you to specify a base URL and provides a set of utility
+ * methods for working with different response formats (e.g., JSON, text, ArrayBuffer, Blob).
+ *
+ * It can be customized with the following options:
+ * - `baseUrl`: A base URL to prepend to all request paths.
+ * - `beforeSend`: A function that is called before the request is sent, which allows modification
+ *   of the request object.
+ * - `timeout`: The maximum duration (in milliseconds) for a request before it times out.
+ * - `credentials`: The credentials mode for the request (e.g., "same-origin", "include").
+ * - `fetch`: A custom fetch function (default is the global `fetch`).
+ * - And more.
+ *
+ * The class is designed to be used in both Node.js and browser environments.
+ */
 export class HttpClient {
   #options: Options;
 
