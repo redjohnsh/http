@@ -1,6 +1,4 @@
 /**
- * HttpClient Module
- *
  * A simple and flexible HTTP client for making requests with customizable options.
  * This module provides an easy-to-use interface for sending GET, POST, PUT, PATCH,
  * and DELETE requests, along with a builder pattern for configuring the request.
@@ -24,17 +22,52 @@
  * @module HttpClient
  */
 
+/**
+ * The base class for all errors related to fetch requests.
+ * Inherits from the built-in `Error` class.
+ */
 export class FetchError extends Error {}
+
+/**
+ * A class representing errors that occur on the client side, such as bad requests.
+ * Inherits from `FetchError`.
+ */
 export class ClientError extends FetchError {}
+
+/**
+ * A class representing errors that occur when the server responds with an error status.
+ * Inherits from `FetchError`.
+ *
+ * @param response - The response object associated with the error, including status and other details.
+ */
 export class ServerError extends FetchError {
   constructor(readonly response: Response) {
     super(`Server replied with status: ${response.status}`);
   }
 }
 
+/**
+ * A class representing errors that occur when a request times out.
+ * Inherits from `ClientError`.
+ */
 export class TimeoutError extends ClientError {}
+
+/**
+ * A class representing errors that occur when a request is aborted.
+ * Inherits from `ClientError`.
+ */
 export class AbortError extends ClientError {}
+
+/**
+ * A class representing errors that occur due to network issues, such as lack of connectivity.
+ * Inherits from `ClientError`.
+ */
 export class NetworkError extends ClientError {}
+
+/**
+ * A class representing errors that don't fit any of the other categories.
+ * Inherits from `ClientError`.
+ */
 export class UnknownError extends ClientError {}
 
 type JSONValue =
