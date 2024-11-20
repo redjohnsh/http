@@ -123,7 +123,7 @@ export interface Options {
   timeout?: number;
 }
 
-type Path = readonly (number | string)[];
+export type PathSegments = readonly (number | string | null | undefined)[];
 
 export class HttpClient {
   #options: Options;
@@ -132,9 +132,10 @@ export class HttpClient {
     this.#options = options;
   }
 
-  #pathname(path: Path): string {
+  #pathname(path: PathSegments): string {
     const segments: string[] = [];
     for (let segment of path) {
+      if (typeof segment === "undefined" || segment === null) continue;
       if (typeof segment === "number") {
         segments.push(String(segment));
         continue;
@@ -153,7 +154,7 @@ export class HttpClient {
     return segments.join("/");
   }
 
-  #build(method: string, path: Path): Builder {
+  #build(method: string, path: PathSegments): Builder {
     const { baseUrl, ...options } = this.#options;
     const pathname = this.#pathname(path);
     const url = new URL(pathname, baseUrl);
@@ -165,7 +166,7 @@ export class HttpClient {
    * @param path - The path segments to construct the URL.
    * @returns A BuilderWithoutBody instance for further configuration.
    */
-  get(...path: Path): BuilderWithoutBody {
+  get(...path: PathSegments): BuilderWithoutBody {
     return this.#build("GET", path);
   }
 
@@ -174,7 +175,7 @@ export class HttpClient {
    * @param path - The path segments to construct the URL.
    * @returns A Builder instance for further configuration.
    */
-  post(...path: Path): Builder {
+  post(...path: PathSegments): Builder {
     return this.#build("POST", path);
   }
 
@@ -183,7 +184,7 @@ export class HttpClient {
    * @param path - The path segments to construct the URL.
    * @returns A Builder instance for further configuration.
    */
-  put(...path: Path): Builder {
+  put(...path: PathSegments): Builder {
     return this.#build("PUT", path);
   }
 
@@ -192,7 +193,7 @@ export class HttpClient {
    * @param path - The path segments to construct the URL.
    * @returns A Builder instance for further configuration.
    */
-  patch(...path: Path): Builder {
+  patch(...path: PathSegments): Builder {
     return this.#build("PATCH", path);
   }
 
@@ -201,15 +202,24 @@ export class HttpClient {
    * @param path - The path segments to construct the URL.
    * @returns A BuilderWithoutBody instance for further configuration.
    */
-  delete(...path: Path): BuilderWithoutBody {
+  delete(...path: PathSegments): BuilderWithoutBody {
     return this.#build("DELETE", path);
   }
 }
 
-type BuilderWithoutBody = Omit<Builder, "body">;
+export type BuilderWithoutBody = Omit<Builder, "body">;
 type BuilderOptions = Omit<Options, "baseUrl">;
 
-class Builder {
+/**
+ * The Builder class is used to configure and send HTTP requests with customizable options.
+ * It supports various methods for setting request headers, body, parameters, and other options
+ * such as timeout, credentials, and cache behavior.
+ *
+ * The Builder class implements a builder pattern, allowing you to chain method calls to configure
+ * the request before sending it. It provides methods for sending requests with different response types
+ * such as JSON, text, ArrayBuffer, Blob, FormData, and more.
+ */
+export class Builder {
   #body?: BodyInit;
   #headers = new Headers();
   #method: string;
