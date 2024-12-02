@@ -70,7 +70,7 @@ export class NetworkError extends ClientError {}
  */
 export class UnknownError extends ClientError {}
 
-type JSONValue =
+export type JSONValue =
   | string
   | number
   | boolean
@@ -78,7 +78,7 @@ type JSONValue =
   | { [x: string]: JSONValue }
   | Array<JSONValue>;
 
-type JSONBody =
+export type JSONBody =
   | string
   | number
   | boolean
@@ -141,6 +141,11 @@ export interface Options {
    * The request mode (e.g., "cors", "same-origin").
    */
   mode?: RequestMode;
+
+  /**
+   * A function to be called as soon as a response comes in.
+   */
+  onResponse?: (response: Response) => void;
 
   /**
    * The priority of the request (e.g., "high", "low").
@@ -603,9 +608,10 @@ export class Builder {
       const {
         beforeSend,
         fetch = globalThis.fetch,
-        timeout = 10_000,
+        onResponse,
         retry = 0,
         retryDelay = 500,
+        timeout = 10_000,
         ...requestInit
       } = this.#options;
 
@@ -626,6 +632,7 @@ export class Builder {
 
       try {
         const response = await fetch(request);
+        onResponse?.(response);
 
         if (response.ok) {
           return response; // Return the successful response
