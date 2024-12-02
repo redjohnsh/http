@@ -174,10 +174,22 @@ export interface Options {
   retry?: number;
 
   /**
+   * A list of HTTP status codes that are eligible for retry attempts.
+   * Defaults to `[408, 409, 425, 429, 500, 502, 503, 504]`, representing common transient error codes.
+   */
+  retryCodes?: number[];
+
+  /**
    * The delay between retry attempts, in milliseconds.
    * Defaults to `500` if not specified, meaning retries will occur after 500 ms.
    */
   retryDelay?: number;
+
+  /**
+   * A list of HTTP methods (e.g., "GET", "POST") eligible for retry attempts.
+   * Defaults to `["GET"]`, allowing retries only for safe and idempotent GET requests.
+   */
+  retryMethods?: string[];
 
   /**
    * The timeout duration for the request in milliseconds.
@@ -298,22 +310,8 @@ type BuilderOptions = Omit<Options, "baseUrl">;
 
 const MIN_RETRY_DELAY = 200; // 200ms
 const MAX_RETRY_DELAY = 10_000; // 10 seconds
-const RETRY_CODE_LIST: readonly number[] = [
-  408, 409, 425, 429, 500, 502, 503, 504,
-];
-
-function shouldRetryRequest(
-  request: Request,
-  response: Response,
-  currentAttempt: number,
-  maxAttempts: number
-): boolean {
-  return (
-    currentAttempt < maxAttempts &&
-    request.method === "GET" &&
-    RETRY_CODE_LIST.includes(response.status)
-  );
-}
+const DEFAULT_RETRY_METHODS = ["GET"];
+const DEFAULT_RETRY_CODES = [408, 409, 425, 429, 500, 502, 503, 504];
 
 /**
  * The Builder class is used to configure and send HTTP requests with customizable options.
@@ -610,7 +608,9 @@ export class Builder {
         fetch = globalThis.fetch,
         onResponse,
         retry = 0,
+        retryCodes = DEFAULT_RETRY_CODES,
         retryDelay = 500,
+        retryMethods = DEFAULT_RETRY_METHODS,
         timeout = 10_000,
         ...requestInit
       } = this.#options;
@@ -638,7 +638,14 @@ export class Builder {
           return response; // Return the successful response
         }
 
-        if (!shouldRetryRequest(request, response, currentAttempt, retry)) {
+        // Check if we should retry the request.
+        if (
+          !(
+            currentAttempt < retry &&
+            retryMethods.includes(request.method) &&
+            retryCodes.includes(response.status)
+          )
+        ) {
           // Throw a ServerError if no more retries are allowed
           throw new ServerError(response);
         }
